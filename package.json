@@ -1,8 +1,8 @@
 {
   "name": "slobs.js",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "An easy solution to access Streamlabs OBS (SLOBS) websocket connections.",
-  "main": "index.js",
+  "main": "./lib/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,10 +11,13 @@
     "url": "git+https://github.com/kramitox/SlobsJS.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Krammy <krammy_ie@outlook.com>",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/kramitox/SlobsJS/issues"
   },
-  "homepage": "https://github.com/kramitox/SlobsJS#readme"
+  "homepage": "https://github.com/kramitox/SlobsJS#readme",
+  "dependencies": {
+    "sockjs-client": "^1.4.0"
+  }
 }
