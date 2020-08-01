@@ -10,7 +10,7 @@ const slobs = new SlobsJS('http://127.0.0.1:59650/api' , 'token');
 console.log( slobs.getStreamingStatus() ); //Will return 'live' or 'offline' if slobs is streaming or not.
 ```
 
-##Functions
+## Functions
 
 ``getStreamingStatus()`` returns whether slobs is streaming or not. Result: 'live' / 'offline'
 
