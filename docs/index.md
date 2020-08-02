@@ -5,26 +5,49 @@
 
 
 * * *
+
+## Class: Slobs
+
+
+
 ## Class: Slobs
 
 
 ### Slobs.getScenes() 
 
-Gets the map of all the scenes from Slobs
-
 **Returns**: `Map`, Map of all scenes & sources.
+
+**Example**:
+```js
+slobs.getScenes();
+```
 
 ### Slobs.getStreamingStatus() 
 
 **Returns**: `string`, live / offline
 
+**Example**:
+```js
+slobs.getStreamingStatus();
+```
+
 ### Slobs.getStreamUptime() 
 
 **Returns**: `string`, Time formatted (hh:mm:ss) or 'offline'
 
+**Example**:
+```js
+slobs.getStreamUptime();
+```
+
 ### Slobs.getRecordingUptime() 
 
 **Returns**: `string`, Time formatted (hh:mm:ss) or 'offline'
+
+**Example**:
+```js
+slobs.getRecordingUptime();
+```
 
 ### Slobs.toggleSource(sceneName, sourceName) 
 
@@ -35,6 +58,11 @@ Gets the map of all the scenes from Slobs
 **sourceName**: `string`, Case sensitive name of the Source we wish to toggle.
 
 
+**Example**:
+```js
+slobs.toggleSource("Game Scene", "Webcam")
+```
+
 ### Slobs.setActiveScene(sceneName) 
 
 **Parameters**
@@ -42,11 +70,26 @@ Gets the map of all the scenes from Slobs
 **sceneName**: `string`, Case sensitive name of the Scene we wish to set as active.
 
 
+**Example**:
+```js
+slobs.setActiveScene("Game Scene");
+```
+
 ### Slobs.toggleRecording() 
 
 
+**Example**:
+```js
+slobs.toggleRecording();
+```
+
 ### Slobs.toggleStreaming() 
 
+
+**Example**:
+```js
+slobs.toggleStreaming();
+```
 
 
 

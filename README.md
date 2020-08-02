@@ -12,7 +12,7 @@
 # SlobsJS
 An easy solution to access Streamlabs OBS (SLOBS) websocket connections.
 
-[Documentation](https://kramitox.github.io/SlobsJS/module.exports.html)
+[Documentation](https://kramitox.github.io/SlobsJS/Slobs.html)
 
 ## How to use
 ### Get Token
