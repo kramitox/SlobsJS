@@ -1,6 +1,6 @@
 {
   "name": "slobs.js",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "An easy solution to access Streamlabs OBS (SLOBS) websocket connections.",
   "main": "./lib/index.js",
   "scripts": {
