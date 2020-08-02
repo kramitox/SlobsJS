@@ -19,5 +19,8 @@
   "homepage": "https://github.com/kramitox/SlobsJS#readme",
   "dependencies": {
     "sockjs-client": "^1.4.0"
+  },
+  "devDependencies": {
+    "jsdoc-to-markdown": "^6.0.1"
   }
 }
