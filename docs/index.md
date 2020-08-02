@@ -5,29 +5,28 @@
 
 
 * * *
+## Class: Slobs
 
-## Class: exports
 
-
-### exports.getScenes() 
+### Slobs.getScenes() 
 
 Gets the map of all the scenes from Slobs
 
 **Returns**: `Map`, Map of all scenes & sources.
 
-### exports.getStreamingStatus() 
+### Slobs.getStreamingStatus() 
 
 **Returns**: `string`, live / offline
 
-### exports.getStreamUptime() 
+### Slobs.getStreamUptime() 
 
 **Returns**: `string`, Time formatted (hh:mm:ss) or 'offline'
 
-### exports.getRecordingUptime() 
+### Slobs.getRecordingUptime() 
 
 **Returns**: `string`, Time formatted (hh:mm:ss) or 'offline'
 
-### exports.toggleSource(sceneName, sourceName) 
+### Slobs.toggleSource(sceneName, sourceName) 
 
 **Parameters**
 
@@ -36,17 +35,17 @@ Gets the map of all the scenes from Slobs
 **sourceName**: `string`, Case sensitive name of the Source we wish to toggle.
 
 
-### exports.setActiveScene(sceneName) 
+### Slobs.setActiveScene(sceneName) 
 
 **Parameters**
 
 **sceneName**: `string`, Case sensitive name of the Scene we wish to set as active.
 
 
-### exports.toggleRecording() 
+### Slobs.toggleRecording() 
 
 
-### exports.toggleStreaming() 
+### Slobs.toggleStreaming() 
 
 
 
