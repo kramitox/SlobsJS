@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: index.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: index.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const SockJS = require('sockjs-client');
+
+
+const ID_CONNECT = 1;
+const ID_STREAMSTATUS = 2;
+const ID_STREAMSTATUS_CHANGED = 3;
+const ID_SCENES = 4;
+const ID_TOGGLE = 5;
+
+//Map of all the scenes in the connected Slobs. Filled with getScenes();
+const scenesMap = new Map();
+const slobsStatus = new Map();
+
+/**
+ * @private
+ * 
+ * This function handles sending our authorization token to Slobs
+ * 
+ * @param {object} slobs object containing slobs information.The slobs object created with slobs(message).
+ */
+function auth(slobs)
+{
+	const connectMessage = JSON.stringify({
+		  jsonrpc: '2.0',
+		  id: ID_CONNECT,
+		  method: 'auth',
+		  params: {
+			resource: 'TcpServerService',
+			args: [slobs.token],
+		  },
+		});
+		slobs.socket.send(connectMessage);
+}
+
+/**
+ * @private
+ * Handler for Messages based off ID's
+ * @param {object} slobs object containing slobs information.The slobs object created with slobs(message).
+ */
+function messageHandler(slobs)
+{
+	const data = JSON.parse(slobs.message.data);
+	if (data.result)
+	{
+		if (data.id === ID_STREAMSTATUS)
+		{
+			slobsStatus.set('streamStatus', data.result.streamingStatus);
+			slobsStatus.set('recordingStatus', data.result.recordingStatus);
+			if (data.result.streamingStatus == 'live')
+			{
+				slobsStatus.set('StreamStartTime', data.result.streamingStatusTime);
+			} else slobsStatus.set('startTime', null);
+			if (data.result.recordingStatus == 'recording')
+			{
+				slobsStatus.set('recordingStartTime', data.result.recordingStatusTime);
+			}else slobsStatus.set('recordingStartTime', null);
+		}
+        if (data.result._type !== undefined &amp;&amp; data.result._type === 'EVENT') {
+          if (data.result.emitter === 'STREAM' &amp;&amp; data.result.resourceId === 'StreamingService.streamingStatusChange') {
+			slobsStatus.set('streamStatus', data.result.streamingStatus);
+			if (data.result.streamingStatus == 'live')
+			{
+				slobsStatus.set('startTime', data.result.streamingStatusTime);
+			} else slobsStatus.set('startTime', null);
+          }
+		  else if (data.result.emitter === 'STREAM' &amp;&amp; data.result.resourceId === 'StreamingService.recordingStatusChange') {
+			slobsStatus.set('streamStatus', data.result.recordingStatus);
+			if (data.result.recordingStatus == 'recording')
+			{
+				slobsStatus.set('recordingStartTime', data.result.recordingStatus);
+			} else slobsStatus.set('recordingStartTime', null);
+          }
+        }
+	}
+	if (data.id == ID_CONNECT &amp;&amp; data.result == false)
+	{
+		auth();
+	}
+	else if (data.id == ID_CONNECT)
+	{
+		subscribeStreaming(slobs.socket);
+		streamingStatus(slobs.socket);
+		getScenes(slobs.socket);
+	}
+	if (data.id === ID_SCENES) {
+		for (let i = 0; i &lt; data.result.length; i++) {
+		  const sources = new Map();
+		  for (let j = 0; j &lt; data.result[i].nodes.length; j++) {
+			sources.set(data.result[i].nodes[j].name, data.result[i].nodes[j]);
+		  }
+		  const sceneName = data.result[i].name;
+		  scenesMap.set(sceneName, sources);
+		}
+	}
+}
+/**@private
+ * /OUTPUTS ERROR OF WHY SLOBS DISCONNECTED
+ * @param {object} slobs object containing slobs information.
+ */
+function disconnectHandler(slobs)
+{
+	
+}
+
+/**@private
+ * Used to get events of streaming status changes.
+ * @param {object} slobs object containing slobs information.
+ */
+function subscribeStreaming(slobs) {
+  let message = JSON.stringify({
+    id: ID_STREAMSTATUS_CHANGED,
+    jsonrpc: '2.0',
+    method: 'streamingStatusChange',
+    params: { resource: 'StreamingService' },
+  });
+  slobs.send(message);
+  
+  message = JSON.stringify({
+    id: ID_STREAMSTATUS_CHANGED,
+    jsonrpc: '2.0',
+    method: 'recordingStatusChange',
+    params: { resource: 'StreamingService' },
+  });
+  slobs.send(message);
+  
+}
+/**@private
+ * Gets the starting streaming status
+ * @param {object} slobs object containing slobs information.
+ */
+function streamingStatus(slobs) {
+  const message = JSON.stringify({
+    id: ID_STREAMSTATUS,
+    jsonrpc: '2.0',
+    method: 'getModel',
+    params: { resource: 'StreamingService' },
+  });
+  slobs.send(message);
+}
+
+/**@private
+ * Toggles slobs streaming between offline/live
+ * @param {object} slobs object containing slobs information.
+ */
+function toggleStreaming(slobs)
+{
+	const message = JSON.stringify({
+    id: ID_TOGGLE,
+    jsonrpc: '2.0',
+    method: 'toggleStreaming',
+    params: { resource: 'StreamingService' },
+  });
+  slobs.send(message);
+}
+/**@private
+ * Toggles slobs recording between offline/recording
+ * @param {object} slobs object containing slobs information.
+ */
+function toggleRecording(slobs)
+{
+	const message = JSON.stringify({
+    id: ID_TOGGLE,
+    jsonrpc: '2.0',
+    method: 'toggleRecording',
+    params: { resource: 'StreamingService' },
+  });
+  slobs.send(message);
+}
+/**@private
+ * Requests a list of all the scenes in slobs.
+ * @param {object} slobs object containing slobs information.
+ */
+function getScenes(slobs) {
+  const message = JSON.stringify({
+    id: ID_SCENES,
+    jsonrpc: '2.0',
+    method: 'getScenes',
+    params: { resource: 'ScenesService' },
+  });
+  slobs.send(message);
+}
+
+/**@private
+ * Allows us to turn on/off a source.
+ * @param {object} slobs object containing slobs information.
+ * @param {string} sceneName case sensitive name of scene.
+ * @param {string} sourceName case sensitive name of source.
+ */
+function toggleSourceVisible(slobs,sceneName, sourceName) {
+  const source = scenesMap.get(sceneName).get(sourceName);
+  const message = JSON.stringify({
+    id: 10,
+    jsonrpc: '2.0',
+    method: 'setVisibility',
+    params: { resource: source.resourceId, args: [!source.visible] },
+  });
+  slobs.send(message);
+  source.visible = !source.visible;
+}
+/**@private
+ * Allows us to set active scene.
+ * @param {object} slobs 
+ * @param {string} sceneName case sensitive name of scene.
+ */
+function activeScene(slobs, sceneName) {
+  const scene = scenesMap.get(sceneName).values().next().value;
+  const message = JSON.stringify({
+    id: 10,
+    jsonrpc: '2.0',
+    method: 'makeSceneActive',
+    params: { resource: 'ScenesService', args: [scene.sceneId] },
+  });
+  slobs.send(message);
+}
+
+/**@private
+ * @param {int} s milliseconds to be converted to time.
+ * @returns {string} Time formatted hh:mm:ss.
+ */
+function msToTime(s) {
+  var ms = s % 1000;
+  s = (s - ms) / 1000;
+  var secs = s % 60;
+  s = (s - secs) / 60;
+  var mins = s % 60;
+  var hrs = (s - mins) / 60;
+
+  return hrs + ':' + mins + ':' + secs;
+}
+
+/**
+ * Slobs class
+ */
+module.exports = class Slobs
+{
+	/**
+	 * @constructor
+	 * @param {string} ip IP Address where slobs is running. Local: http://127.0.0.1:59650/api
+	 * @param {string} token Settings->Remote Control and click on the QR-Code and then on show details.
+	 */
+   	constructor(ip, token){
+		if (ip === null || token === null)
+		{
+			return null;
+		}
+		this.socket = new SockJS(ip);
+		this.tk = token;
+		
+		
+		if (this.socket !== null)
+		{
+			//AUTHORIZE WITH SLOBS
+			this.socket.onopen = () => {
+				auth(this.slobs());
+			};
+			
+			// HANDLE MESSAGES RECEIVED
+			this.socket.onmessage = (message) => {
+				messageHandler(this.slobs(message));
+			}
+
+			//Output error message if socket closes
+			this.socket.onclose = (message) => {
+				disconnectHandler(this.slobs(message));
+			};
+		}
+	}
+	
+	/**
+	 * Gets the map of all the scenes from Slobs
+	 * @returns {Map} Map of all scenes &amp; sources.
+	 */
+	getScenes()
+	{
+		return scenesMap;
+	}
+	
+	/**@public
+	 * Gets whether stream is live / offline
+	 * @returns {string} live / offline
+	 */
+	getStreamingStatus() {
+		return slobsStatus.get('streamStatus');
+	}
+	
+	/**@public
+	 *Gets time since stream started if online (hh:mm:ss), otherwise returns 'offline'.
+	 *@returns {string} Time formatted (hh:mm:ss) or 'offline'
+	 */
+	getStreamUptime()
+	{
+		let time = slobsStatus.get('startTime');
+		if(time !== null){
+			let date = new Date();
+			time = new Date(time);
+			time = msToTime(date - time)
+		}else time = "offline";
+		return time;
+	}
+	/**@public
+	 *Gets time since stream started if recording (hh:mm:ss), otherwise returns 'offline'.
+	 *@returns {string} Time formatted (hh:mm:ss) or 'offline'
+	 */
+	getRecordingUptime()
+	{
+		let time = slobsStatus.get('recordingStartTime');
+		if(time !== null){
+			let date = new Date();
+			time = new Date(time);
+			time = msToTime(date - time)
+		}else time = "offline";
+		return time;
+	}
+	
+	/**@public
+	 * Allows us to toggle on/off a Source in SLOBS.
+	 * @param {string} sceneName Case sensitive name of the Scene the source belongs to.
+	 * @param {string} sourceName Case sensitive name of the Source we wish to toggle.
+	 */
+	toggleSource(sceneName, sourceName) {
+		toggleSourceVisible(this.socket,sceneName, sourceName);
+	}
+	/**@public
+	 * Set's the defined scene as the active scene.
+	 * @param {string} sceneName Case sensitive name of the Scene we wish to set as active.
+	 */
+	setActiveScene(sceneName) {
+		activeScene(this.socket,sceneName);
+	}
+	
+	
+	/**@public
+	 * Toggles recording on/off
+	 */
+	toggleRecording()
+	{
+		toggleRecording(this.socket);
+	}
+	
+	/**@public
+	 * Toggles streaming on/off
+	 */
+	toggleStreaming()
+	{
+		toggleStreaming(this.socket);
+	}
+	
+	
+	
+	
+	
+	/**@private
+	 * Returns an object of all the slobs information for our messages.
+	 * @param {string} message the message received from Slobs.
+	 * @returns {*} Object containing information for messageHandlers.
+	 */
+	slobs(message)
+	{
+		return {"socket": this.socket,
+				"token": this.tk, 
+				"message":message
+		}
+	}
+}
+
+
+
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="module.exports.html">exports</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.5</a> on Sun Aug 02 2020 02:02:14 GMT+0100 (British Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
