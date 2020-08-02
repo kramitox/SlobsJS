@@ -12,6 +12,8 @@
 # SlobsJS
 An easy solution to access Streamlabs OBS (SLOBS) websocket connections.
 
+[Documentation](https://kramitox.github.io/SlobsJS/module.exports.html)
+
 ## How to use
 ### Get Token
 In Streamlabs OBS, go to ``Settings``->``Remote Control`` and click on the ``QR-Code`` and then on ``show details``
