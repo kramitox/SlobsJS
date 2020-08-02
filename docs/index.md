@@ -9,14 +9,6 @@
 ## Class: exports
 
 
-
-## Class: exports
-
-
-
-## Class: exports
-
-
 ### exports.getScenes() 
 
 Gets the map of all the scenes from Slobs
