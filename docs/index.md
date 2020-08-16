@@ -6,6 +6,24 @@
 
 * * *
 
+### messageHandler(slobs) 
+
+Handler for Messages based off ID's
+
+**Parameters**
+
+**slobs**: `object`, object containing slobs information.The slobs object created with slobs(message).
+
+**Fires**: event:streamStarted
+
+**Fires**: event:streamEnded
+
+**Fires**: event:recordStarted
+
+**Fires**: event:recordEnded
+
+
+
 ## Class: Slobs
 
 
@@ -89,6 +107,14 @@ slobs.toggleRecording();
 **Example**:
 ```js
 slobs.toggleStreaming();
+```
+
+### Slobs.getConnected() 
+
+
+**Example**:
+```js
+var connected = slobs.getConnection();
 ```
 
 
