@@ -27,7 +27,9 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>const SockJS = require('sockjs-client');
-const util = require('util');
+const Util = require('util');
+const EventEmitter = require('events');
+const { connect } = require('http2');
 
 const ID_CONNECT = 1;
 const ID_STREAMSTATUS = 2;
@@ -38,6 +40,7 @@ const ID_TOGGLE = 5;
 //Map of all the scenes in the connected Slobs. Filled with getScenes();
 const scenesMap = new Map();
 const slobsStatus = new Map();
+var connected = false;
 
 /**
  * @private
@@ -63,11 +66,14 @@ function auth(slobs)
 }
 
 /**
- * @private
  * Handler for Messages based off ID's
  * @param {object} slobs object containing slobs information.The slobs object created with slobs(message).
+ * @fires streamStarted
+ * @fires streamEnded
+ * @fires recordStarted
+ * @fires recordEnded
  */
-function messageHandler(slobs)
+function messageHandler(slobs, emitter)
 {
 	const data = JSON.parse(slobs.message.data);
 	if (data.result)
@@ -88,19 +94,45 @@ function messageHandler(slobs)
 		}
         if (data.result._type !== undefined &amp;&amp; data.result._type === 'EVENT') {
           if (data.result.emitter === 'STREAM' &amp;&amp; data.result.resourceId === 'StreamingService.streamingStatusChange') {
-			slobsStatus.set('streamStatus', data.result.streamingStatus);
-			if (data.result.streamingStatus == 'live')
+			slobsStatus.set('streamStatus', data.result.data);
+			if (data.result.data == 'live')
 			{
-				slobsStatus.set('startTime', data.result.streamingStatusTime);
-			} else slobsStatus.set('startTime', null);
-          }
+				/**
+				 * Triggers when Slobs starts Streaming.
+				 * @event streamStarted 
+				 */
+				emitter.emit('streamStarted');
+				slobsStatus.set('startTime', new Date());
+			} else if (data.result.data == 'offline')
+			{
+				/**
+				 * Triggers when Slobs Stops streaming.
+				 * @event streamEnded 
+				 */
+				emitter.emit('streamEnded');
+				 slobsStatus.set('startTime', null);
+			}
+		  }
+		  
 		  else if (data.result.emitter === 'STREAM' &amp;&amp; data.result.resourceId === 'StreamingService.recordingStatusChange') {
-			slobsStatus.set('streamStatus', data.result.recordingStatus);
-			if (data.result.recordingStatus == 'recording')
+			slobsStatus.set('recordingStatus', data.result.data);
+			if (data.result.data == 'recording')
 			{
-				slobsStatus.set('recordingStartTime', data.result.recordingStatus);
-			} else slobsStatus.set('recordingStartTime', null);
-          }
+				/**
+				 * Triggers when Slobs starts recording.
+				 * @event recordStarted 
+				 */
+				emitter.emit('recordStarted');
+				slobsStatus.set('recordingStartTime', new Date());
+			} else if (data.result.data == 'offline') {
+				/**
+				 * Triggers when Slobs stops recording.
+				 * @event recordEnded 
+				 */
+				emitter.emit('recordEnded');
+				slobsStatus.set('recordingStartTime', null);
+			}
+		  }
         }
 	}
 	if (data.id == ID_CONNECT &amp;&amp; data.result == false)
@@ -109,12 +141,12 @@ function messageHandler(slobs)
 	}
 	else if (data.id == ID_CONNECT)
 	{
+		connected = true;
 		subscribeStreaming(slobs.socket);
 		streamingStatus(slobs.socket);
 		getScenes(slobs.socket);
 	}
 	if (data.id === ID_SCENES) {
-		//console.log(util.inspect(data.result, true, null, true));
 		for (let i = 0; i &lt; data.result.length; i++) {
 		  const sources = new Map();
 		  for (let j = 0; j &lt; data.result[i].nodes.length; j++) {
@@ -129,9 +161,11 @@ function messageHandler(slobs)
  * /OUTPUTS ERROR OF WHY SLOBS DISCONNECTED
  * @param {object} slobs object containing slobs information.
  */
-function disconnectHandler(slobs)
+function disconnectHandler(slobs, emmiter)
 {
-	
+	var data = JSON.parse(slobs.message.data);
+	emmiter.emit('close', data);
+	connected = false;
 }
 
 /**@private
@@ -219,45 +253,79 @@ function getScenes(slobs) {
  * @param {string} sourceName case sensitive name of source.
  */
 function toggleSourceVisible(slobs,sceneName, sourceName) {
-  const source = scenesMap.get(sceneName).get(sourceName);
-  const scene = scenesMap.get(sceneName)
-  //console.log(util.inspect(scenesMap, true, null, true));
-  //console.log(sceneName);
-  //console.log(source);
-  //console.log(source.childrenIds.length);
-  if (source.sceneNodeType === 'folder')
-  {
-	  for (let value of scene.values())
+  if (sceneName !== null){	
+	  let source = scenesMap.get(sceneName).get(sourceName);
+	  let scene = scenesMap.get(sceneName)
+	  if (source.sceneNodeType === 'folder')
 	  {
-		  for (let j = 0; j &lt; source.childrenIds.length; j++)
+		  for (let value of scene.values())
 		  {
-			  if (value.id === source.childrenIds[j])
+			  for (let j = 0; j &lt; source.childrenIds.length; j++)
 			  {
-				  //console.log(value);
-				  
+				  if (value.id === source.childrenIds[j])
+				  {
+					  const message = JSON.stringify({
+						id: ID_TOGGLE,
+						jsonrpc: '2.0',
+						method: 'setVisibility',
+						params: { resource: value.resourceId, args: [!value.visible] },
+					  });
+					  slobs.send(message);
+					  value.visible = !value.visible;
+				  }
+			  }
+		  }
+	  }
+	  else{
+		  const message = JSON.stringify({
+			id: ID_TOGGLE,
+			jsonrpc: '2.0',
+			method: 'setVisibility',
+			params: { resource: source.resourceId, args: [!source.visible] },
+		  });
+		  slobs.send(message);
+		  source.visible = !source.visible;
+	  }
+  }
+  else{
+	  for (let key of scenesMap.keys())
+	  {
+		  let source = scenesMap.get(key).get(sourceName);
+		  let scene = scenesMap.get(key)
+		  if (source !== undefined){
+			  if (source.sceneNodeType === 'folder')
+			  {
+				  for (let value of scene.values())
+				  {
+					  for (let j = 0; j &lt; source.childrenIds.length; j++)
+					  {
+						  if (value.id === source.childrenIds[j])
+						  {  
+							  const message = JSON.stringify({
+								id: ID_TOGGLE,
+								jsonrpc: '2.0',
+								method: 'setVisibility',
+								params: { resource: value.resourceId, args: [!value.visible] },
+							  });
+							  slobs.send(message);
+							  value.visible = !value.visible;
+						  }
+					  }
+				  }
+			  }
+			  else{
 				  const message = JSON.stringify({
 					id: ID_TOGGLE,
 					jsonrpc: '2.0',
 					method: 'setVisibility',
-					params: { resource: value.resourceId, args: [!value.visible] },
+					params: { resource: source.resourceId, args: [!source.visible] },
 				  });
 				  slobs.send(message);
-				  value.visible = !value.visible;
+				  source.visible = !source.visible;
 			  }
-		  }
+			}
 	  }
   }
-  else{
-	  const message = JSON.stringify({
-		id: ID_TOGGLE,
-		jsonrpc: '2.0',
-		method: 'setVisibility',
-		params: { resource: source.resourceId, args: [!source.visible] },
-	  });
-	  slobs.send(message);
-	  source.visible = !source.visible;
-  }
-  
 }
 /**@private
  * Allows us to set active scene.
@@ -293,7 +361,7 @@ function msToTime(s) {
   return hrs + ':' + mins + ':' + secs;
 }
 
-class Slobs
+class Slobs extends EventEmitter
 {
 	/**
 	 * @class Class that represents Slobs
@@ -305,34 +373,42 @@ class Slobs
 	 *
 	 * 
 	 */
-   	constructor(ip, token){
-		if (ip === null || token === null)
-		{
-			return null;
-		}
-		this.socket = new SockJS(ip);
-		this.tk = token;
-		
-		
-		if (this.socket !== null)
-		{
-			//AUTHORIZE WITH SLOBS
-			this.socket.onopen = () => {
-				auth(this.slobs());
-			};
-			
-			// HANDLE MESSAGES RECEIVED
-			this.socket.onmessage = (message) => {
-				messageHandler(this.slobs(message));
-			}
+	constructor(){
+		super();
+        this.socket = null;
+        this.tk = null;
+    }
 
-			//Output error message if socket closes
-			this.socket.onclose = (message) => {
-				disconnectHandler(this.slobs(message));
-			};
-		}
+	login(ip, token) {
+        this.socket = new SockJS(ip);
+        this.tk = token;
+        
+        if (this.socket !== null)
+        {
+            //AUTHORIZE WITH SLOBS
+            this.socket.onopen = () => {
+                auth(this.slobs());
+            };
+            
+            // HANDLE MESSAGES RECEIVED
+            this.socket.onmessage = (message) => {
+                messageHandler(this.slobs(message), this);
+            }
+
+            //Output error message if socket closes
+            this.socket.onclose = (message) => {
+                disconnectHandler(this.slobs(message));
+            };
+        }
 	}
-	
+	disconnect()
+	{
+		this.socket.close(1000, "disconnecting");
+		this.tk = null;
+		this.socket = null;
+		scenesMap.clear();
+		slobsStatus.clear();
+	}
 	/**@public
 	 * 
 	 * Gets the map of all the scenes from Slobs
@@ -438,8 +514,16 @@ class Slobs
 	{
 		toggleStreaming(this.socket);
 	}
-	
-	
+	/**@public
+	 * returns true/false if connected to Streamlabs OBS
+	 * @example var connected = slobs.getConnection();
+	 *
+	 * 
+	 */
+	getConnected()
+	{
+		return connected;
+	}
 	
 	
 	
@@ -471,13 +555,13 @@ module.exports = Slobs;
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Slobs.html">Slobs</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Slobs.html">Slobs</a></li></ul><h3>Events</h3><ul><li><a href="global.html#event:recordEnded">recordEnded</a></li><li><a href="global.html#event:recordStarted">recordStarted</a></li><li><a href="global.html#event:streamEnded">streamEnded</a></li><li><a href="global.html#event:streamStarted">streamStarted</a></li></ul><h3>Global</h3><ul><li><a href="global.html#messageHandler">messageHandler</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.5</a> on Mon Aug 03 2020 02:12:01 GMT+0100 (British Summer Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.5</a> on Sun Aug 16 2020 06:07:27 GMT+0100 (British Summer Time)
 </footer>
 
 <script> prettyPrint(); </script>
